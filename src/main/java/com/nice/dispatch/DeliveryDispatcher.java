@@ -25,7 +25,7 @@ public final class DeliveryDispatcher {
 
     private final Restaurant restaurant;
     private final ScheduledExecutorService executor;
-    private ScheduledFuture<?> scheduledTask;
+    private volatile ScheduledFuture<?> scheduledTask;
 
     public DeliveryDispatcher(Restaurant restaurant) {
         this(restaurant, Executors.newSingleThreadScheduledExecutor());
@@ -44,7 +44,7 @@ public final class DeliveryDispatcher {
      *
      * @throws IllegalStateException if already running
      */
-    public void start(long period, TimeUnit unit) {
+    public synchronized void start(long period, TimeUnit unit) {
         if (scheduledTask != null) {
             throw new IllegalStateException("DeliveryDispatcher is already running");
         }
@@ -55,7 +55,7 @@ public final class DeliveryDispatcher {
      * Stops future scheduled dispatches. A dispatch already in progress, if
      * any, is allowed to finish. Safe to call even if not running.
      */
-    public void stop() {
+    public synchronized void stop() {
         if (scheduledTask != null) {
             scheduledTask.cancel(false);
             scheduledTask = null;

@@ -44,7 +44,6 @@ public final class OrderStore {
     private final LinkedHashMap<Long, Order> ordersById = new LinkedHashMap<>();
     private final Map<String, LinkedHashSet<Long>> ordersByCity = new LinkedHashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(1);
-    private final AtomicLong sequenceGenerator = new AtomicLong(1);
     private final ReentrantLock lock = new ReentrantLock();
 
     /**
@@ -59,9 +58,8 @@ public final class OrderStore {
         lock.lock();
         try {
             long id = idGenerator.getAndIncrement();
-            long sequenceNumber = sequenceGenerator.getAndIncrement();
             String normalizedCity = normalizeCity(city);
-            Order order = new Order(id, customerName, city, normalizedCity, dish, sequenceNumber);
+            Order order = new Order(id, customerName, city, normalizedCity, dish);
 
             ordersById.put(id, order);
             ordersByCity.computeIfAbsent(normalizedCity, key -> new LinkedHashSet<>()).add(id);

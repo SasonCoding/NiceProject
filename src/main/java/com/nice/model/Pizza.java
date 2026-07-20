@@ -1,6 +1,5 @@
 package com.nice.model;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -17,7 +16,9 @@ public final class Pizza extends Dish {
 
     public Pizza(List<String> toppings) {
         Objects.requireNonNull(toppings, "toppings");
-        this.toppings = Collections.unmodifiableList(toppings);
+        // Defensive copy: List.copyOf, not a view over the caller's list, so
+        // later mutation of the caller's original list can't change this Pizza.
+        this.toppings = List.copyOf(toppings);
     }
 
     public List<String> getToppings() {

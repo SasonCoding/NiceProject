@@ -15,6 +15,7 @@ import java.io.PrintStream;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestaurantTest {
@@ -93,5 +94,10 @@ class RestaurantTest {
 
         assertTrue(batch.isEmpty());
         assertTrue(capturedOut.toString().contains("No orders to dispatch"));
+    }
+
+    @Test
+    void constructorRejectsNullOrderStore() {
+        assertThrows(NullPointerException.class, () -> new Restaurant(null));
     }
 }

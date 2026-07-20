@@ -11,6 +11,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -168,5 +175,66 @@ class OrderStoreTest {
         store.addOrder("B", "Netanya", ANY_DISH);
 
         assertEquals(1, snapshot.size());
+    }
+
+    @Test
+    void concurrentAddOrderAndSelectNextBatchNeverCorruptOrLoseOrders() throws InterruptedException {
+        OrderStore store = new OrderStore();
+        int writerThreads = 8;
+        int ordersPerThread = 50;
+        int totalOrders = writerThreads * ordersPerThread;
+        String[] cityPool = {"TLV", "Kfar Saba", "Netanya", "Raanana"};
+
+        ExecutorService writers = Executors.newFixedThreadPool(writerThreads);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(writerThreads);
+        Set<Long> seenIds = ConcurrentHashMap.newKeySet();
+        AtomicInteger duplicateIds = new AtomicInteger();
+
+        for (int t = 0; t < writerThreads; t++) {
+            final int threadIndex = t;
+            writers.submit(() -> {
+                try {
+                    startLatch.await();
+                    for (int i = 0; i < ordersPerThread; i++) {
+                        String city = cityPool[(threadIndex + i) % cityPool.length];
+                        Order order = store.addOrder("Customer" + threadIndex + "-" + i, city, ANY_DISH);
+                        if (!seenIds.add(order.getId())) {
+                            duplicateIds.incrementAndGet();
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        // A concurrent reader/dispatcher, hammering selectNextBatch while orders are still arriving.
+        AtomicInteger dispatchedCount = new AtomicInteger();
+        Thread dispatcherThread = new Thread(() -> {
+            while (doneLatch.getCount() > 0) {
+                dispatchedCount.addAndGet(store.selectNextBatch().size());
+            }
+        });
+        dispatcherThread.start();
+
+        startLatch.countDown();
+        assertTrue(doneLatch.await(10, TimeUnit.SECONDS), "writer threads did not finish in time");
+        writers.shutdown();
+        dispatcherThread.join(10_000);
+
+        // Drain anything left waiting after the writers/dispatcher loop finished.
+        List<Order> remaining;
+        do {
+            remaining = store.selectNextBatch();
+            dispatchedCount.addAndGet(remaining.size());
+        } while (!remaining.isEmpty());
+
+        assertEquals(0, duplicateIds.get(), "no order id should ever be handed out twice");
+        assertEquals(totalOrders, seenIds.size(), "every submitted order must have been accepted exactly once");
+        assertEquals(totalOrders, dispatchedCount.get(), "every accepted order must eventually be dispatched exactly once");
+        assertTrue(store.getCurrentOrders().isEmpty());
     }
 }

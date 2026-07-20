@@ -10,15 +10,13 @@ public final class Order {
     private final String rawCity;
     private final String normalizedCity;
     private final Dish dish;
-    private final long sequenceNumber;
 
-    public Order(long id, String customerName, String rawCity, String normalizedCity, Dish dish, long sequenceNumber) {
+    public Order(long id, String customerName, String rawCity, String normalizedCity, Dish dish) {
         this.id = id;
         this.customerName = Objects.requireNonNull(customerName, "customerName");
         this.rawCity = Objects.requireNonNull(rawCity, "rawCity");
         this.normalizedCity = Objects.requireNonNull(normalizedCity, "normalizedCity");
         this.dish = Objects.requireNonNull(dish, "dish");
-        this.sequenceNumber = sequenceNumber;
     }
 
     public long getId() {
@@ -41,10 +39,6 @@ public final class Order {
 
     public Dish getDish() {
         return dish;
-    }
-
-    public long getSequenceNumber() {
-        return sequenceNumber;
     }
 
     @Override
